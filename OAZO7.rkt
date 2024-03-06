@@ -32,18 +32,18 @@
 (struct Binding ([name : Symbol] [loc : Location])) 
 ;environment init
 (define mt-env '())
-(define extend-env cons)
 (define top-env (list
-                 (Binding 'error 14)
-                 (Binding 'false 13)
-                 (Binding 'true 12)
-                 (Binding 'alen 11)
-                 (Binding 'aset 10)
-                 (Binding 'aref 9)
-                 (Binding 'arr 8)
-                 (Binding 'arr-eq? 7)
-                 (Binding 'str-eq? 6)
-                 (Binding 'num-eq? 5)
+                 (Binding 'error 15)
+                 (Binding 'false 14)
+                 (Binding 'true 13)
+                 (Binding 'alen 12)
+                 (Binding 'aset 11)
+                 (Binding 'aref 10)
+                 (Binding 'arr 9)
+                 (Binding 'arr-eq? 8)
+                 (Binding 'str-eq? 7)
+                 (Binding 'num-eq? 6)
+                 (Binding 'substring 5)
                  (Binding '<= 4)
                  (Binding '/ 3)
                  (Binding '* 2)
@@ -57,25 +57,25 @@
 (struct Result ([val : Value] [store : Store]) #:transparent)
 
 
-(define top-store (Store 15 
+(define top-store (Store 16 
                          (list
-                          (Cell 14 (PrimopV 'error))
-                          (Cell 13 (BoolV #f))
-                          (Cell 12 (BoolV #t))
-                          (Cell 11 (PrimopV 'alen))
-                          (Cell 10 (PrimopV 'aset))
-                          (Cell 9 (PrimopV 'aref))
-                          (Cell 8 (PrimopV 'arr))
-                          (Cell 7 (PrimopV 'arr-eq?))
-                          (Cell 6 (PrimopV 'str-eq?))
-                          (Cell 5 (PrimopV 'num-eq?))
+                          (Cell 15 (PrimopV 'error))
+                          (Cell 14 (BoolV #f))
+                          (Cell 13 (BoolV #t))
+                          (Cell 12 (PrimopV 'alen))
+                          (Cell 11 (PrimopV 'aset))
+                          (Cell 10 (PrimopV 'aref))
+                          (Cell 9 (PrimopV 'arr))
+                          (Cell 8 (PrimopV 'arr-eq?))
+                          (Cell 7 (PrimopV 'str-eq?))
+                          (Cell 6 (PrimopV 'num-eq?))
+                          (Cell 5 (PrimopV 'substring))
                           (Cell 4 (PrimopV '<=))
                           (Cell 3 (PrimopV '/))
                           (Cell 2 (PrimopV '*))
                           (Cell 1 (PrimopV '-))
                           (Cell 0 (PrimopV '+)))))
 
-(define extend-store cons)
 
 (define (print-store [store : Store]) : Void
   (printf "Store (next: ~a)\n" (Store-next store))
@@ -121,7 +121,7 @@
 ;out: evaluation of exp as a Real
 (define (interp [exp : ExprC] [env : Env] [store : Store]) : Result 
   (match exp
-    [(NumC n) (Result (NumV n) store)]
+    [(NumC n) (Result (NumV n) store)] 
     [(StrC s) (Result (StrV s) store)]
     [(MutC id val)
      (define interped-result (interp val env store))
@@ -140,48 +140,41 @@
                                  [else (interp else env (Result-store if_interped))])]
                           [else (error 'interp "OAZO5 if must be a truth value")])]
     [(AppC fun (list args ...)) (define f (interp fun env store))
-                                #;(define arguments (map (lambda ([a : ExprC])
-                                                           (Result-val (interp a env store))) args))
                                 (define result-arguments (thread args env (Result-store f)))
                                 (define last-store (Result-store (last result-arguments)))
                                 (define arguments (get-vals result-arguments))
                                 (match (Result-val f)
-                                  [(PrimopV op) (operation op arguments last-store)] #;(WHERE DO STORE STORE? --> LOSING INNER STORE AFTER RETURN FROM ARR)
-                                  #;[else (error 'interp "unimplemented appC")]
+                                  [(PrimopV op) (operation op arguments last-store)]
                                   [(ClosV (list args ...) body env)
                                    (cond [(= (length arguments) (length args))
-                                          (define new-env-store (extend arguments args last-store env)) 
-                                            
+                                          (define new-env-store (extend arguments args last-store env))
                                           (interp body (car new-env-store) (cdr new-env-store))]
                                          [else (error 'interp "OAZO5 incorrect argument length")])]
-                                  [(NumV n) (error 'interp "OAZO5 incorrect argument type of ~v" n)])]  
-    [else (error 'interp "unimplemented")])) 
+                                  [(NumV n) (error 'interp "OAZO5 incorrect argument type of ~v" n)])])) 
+
 
 ;EXTEND 
 ;in: a list or agumenets, list of parameters, and current environment
 ;out: the new environment that has the parameters with the values of arguments
-#;(define (extend [arg : (Listof Value)] [param : (Listof Symbol)] [env : Env]) : Env
-    (match arg
-      ['() env]
-      [a (extend (rest arg) (rest param) (extend-env (Binding (first param) (first arg)) env))]))
-;EXTEND
 (define (extend [arg : (Listof Value)] [param : (Listof Symbol)] [store : Store] [env : Env]) : (Pairof Env Store)
-  (cons (extend-e param (Store-next store) env) (extend-s arg store))
-  )
+  (cons (extend-e param (Store-next store) env) (extend-s arg store)))
+
+
 ;EXTEND-ENVIRONMENT
 (define (extend-e [param : (Listof Symbol)] [num : Real] [env : Env]) : Env 
   (match param
     ['() env]
     [p (cons (Binding (first param) num) (extend-e (rest param) (+ num 1) env))]))
+
+
 ;EXTEND-STORE
 (define (extend-s [arg : (Listof Value)] [store : Store]) : Store
   (match arg
     ['() store]
-    [a (Store (+ (Store-next store) 1) (cons (Cell (Store-next store) (first arg)) (Store-cells store)))]))
-
-#;(CREATE NEW CELL IN STORE WITH STORE-NEXT AND INTERPED ARG (FIRST ARGUMENTS))
-#;(CREATE NEW BINDING IN ENV WITH STORE-NEXT AND SYMBOL (FIRST ARG))
+    [a
+     (extend-s (rest arg) (Store (+ (Store-next store) 1) (cons (Cell (Store-next store) (first arg)) (Store-cells store))))]))
  
+
 ;;THREAD
 (define (thread [args : (Listof ExprC)] [env : Env] [store : Store]) : (Listof Result)
   (match args
@@ -219,13 +212,14 @@
 ;FETCH
 (define (fetch [loc : Location] [store : Store]) : Value
   (match (Store-cells store)
-    ['() (error 'lookup "OAZO5 location not found: ~e" loc)]
+    ['()  
+     (error 'lookup "OAZO5 location not found: ~e" loc)]
     [(cons (Cell location op) r) (cond
                                    [(equal? location loc) op]
                                    [else (fetch loc (Store (Store-next store) r))])]))
 
 
- 
+  
 ;OPERATION
 ;in: the operation as a symbol and the two values
 ;out: values applied to the racket operation based on that symbol
@@ -275,16 +269,12 @@
               (define newcell (Cell (NumV-n idx) newval))
               (define new-store (cons newcell (Store-cells store)))
               
-              (Result (NullV) (Store (Store-next store) new-store))])]
+              (Result (NullV) (Store (Store-next store) new-store))]
+       ['substring (define str (cast (first args) StrV))
+                   (define start (cast (first (rest args)) NumV))
+                   (define end (cast (first (rest (rest args))) NumV))
+                   (Result (StrV (substring (StrV-s str) (cast (NumV-n start) Integer) (cast (NumV-n end) Integer))) store)])]
     [else (error 'operation "OAZO7 operation not valid")]))
-
-
-#;(define (mut-arr! [idx : NumV] [newval : NumV] [lst : (Listof Cell)]) : (Listof Cell)
-    (match lst
-      ['() '()]
-      [(cons f r) (cond [(equal? (Cell-loc f) idx) (cons (Cell (NumV-n idx) newval) (mut-arr! idx newval r))]
-                        [else (cons f (mut-arr! idx newval r))])]))
-
 
 
 ;;CREATE-ARR
@@ -293,14 +283,11 @@
         [(create-arr (cdr (allocate store val)) val (- size 1))]))
 
 
-
 ;;ALLOCATE
 (define (allocate [store : Store] [val : Value]) : (Pairof Location Store)
   (define base (Store-next store))
   (cons base (Store (+ base 1) (cons (Cell base val) (Store-cells store)))))
 
- 
- 
 
 ;PARSE
 ;in: s-expression code
@@ -326,9 +313,6 @@
     [other (error 'parse "OAZO5 syntax error in ~e" other)]))
 
 
-
-
-
 ;IS-ALLOWED
 ;in: symbol s
 ;out: boolean represntation of if the symbol is not a keyword
@@ -341,9 +325,6 @@
     [': #f]
     ['<- #f]
     [else #t]))
-
-
-
 
 
 ;HAS-NOT-DUPLICATES
@@ -368,13 +349,24 @@
 ;------------------------ TESTING ----------------------------------
 ;basic functions
 
-(check-equal? (top-interp '{+ 1 2}) "3")
-(check-equal? (top-interp '{+ 1 {+ 1 2}}) "4")
+#;(check-equal? (top-interp '{+ 1 2}) "3")
+#;(check-equal? (top-interp '{+ 1 {+ 1 2}}) "4")
 
-
+(check-equal?
+ (top-interp
+  '{let
+       [w <- 5] [x <- 7] [y <- 5] [z <- 7]
+     {/
+      {- 
+       {*
+        {+ x y} z} w} 1}}) "79")
 
 #|
-(check-equal? (top-interp '{let [w <- 5] [x <- 7] [y <- 5] [z <- 7] {/ {- {* {+ x y} z} w} 1}}) "79")
+
+
+
+#;(check-equal? (top-interp '{let [w <- 5] [x <- 7] [y <- 5] [z <- 7] {/ {- {* {+ x y} z} w} 1}}) "79")
+
 (check-equal? (top-interp '{{anon {x} : {+ x 1}} 8}) "9")
 (check-equal? (top-interp '{{anon {x} : {<= x 9}} 8}) "true")
 (check-equal? (top-interp '{{anon {x} : {<= x 9}} 80}) "false")
@@ -416,7 +408,7 @@
 (check-exn #rx"user-error" (lambda () (top-interp '((anon (e) : (e e)) error))))
 (check-exn #rx"OAZO5 incorrect argument type of" (lambda () (top-interp '{3 4 5})))
 
+
+
 |#
-
-
 
